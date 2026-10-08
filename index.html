@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CAD Drawing Compare</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --panel-2: #1f2937;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --green: #22c55e;
+      --red: #ef4444;
+      --accent: #60a5fa;
+      --border: rgba(148, 163, 184, 0.2);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 18px 50px rgba(0,0,0,.35);
+    }
+    .header {
+      padding: 18px 22px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(135deg, rgba(96,165,250,.18), rgba(34,197,94,.08));
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 26px;
+      letter-spacing: .02em;
+    }
+    .toolbar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 18px;
+      padding: 22px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,.02);
+    }
+    .file-box {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .file-box label {
+      display: block;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    input[type="file"] {
+      width: 100%;
+      color: var(--text);
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 10px;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding: 22px;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    button {
+      border: none;
+      border-radius: 10px;
+      padding: 12px 18px;
+      font-weight: 700;
+      cursor: pointer;
+      background: var(--accent);
+      color: #07111d;
+      transition: transform .15s ease, opacity .15s ease;
+    }
+    button:hover { transform: translateY(-1px); }
+    button.secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    button:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .status {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      padding: 0 22px 12px;
+      color: var(--muted);
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+    }
+    .legend {
+      display: flex;
+      gap: 18px;
+      flex-wrap: wrap;
+      font-size: 13px;
+      color: var(--muted);
+      padding: 0 22px 18px;
+    }
+    .swatch {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      margin-right: 6px;
+      border-radius: 4px;
+      vertical-align: middle;
+    }
+    .green { background: rgba(34,197,94,.8); }
+    .red { background: rgba(239,68,68,.8); }
+    .canvas-wrap {
+      display: flex;
+      justify-content: center;
+      padding: 0 22px 22px;
+      overflow: auto;
+    }
+    canvas {
+      max-width: 100%;
+      border-radius: 12px;
+      background: #fff;
+      border: 1px solid var(--border);
+      box-shadow: 0 15px 35px rgba(0,0,0,.2);
+    }
+    .summary {
+      padding: 0 22px 22px;
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 14px;
+    }
+    .summary strong { color: var(--text); }
+    @media (max-width: 720px) {
+      body { padding: 12px; }
+      .controls { padding-top: 14px; }
+      .header h1 { font-size: 22px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>CAD Drawing Difference Viewer</h1>
+    </div>
+
+    <div class="toolbar">
+      <div class="file-box">
+        <label for="fileA">Image 1</label>
+        <input id="fileA" type="file" accept="image/*" />
+      </div>
+      <div class="file-box">
+        <label for="fileB">Image 2</label>
+        <input id="fileB" type="file" accept="image/*" />
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="btn-row">
+        <button id="compareBtn">Compare Images</button>
+        <button id="downloadBtn" class="secondary" disabled>Download Result</button>
+      </div>
+      <button id="resetBtn" class="secondary">Reset</button>
+    </div>
+
+    <div class="status">
+      <span class="pill" id="statusText">Ready</span>
+      <span class="pill" id="matchPill">Matches: 0%</span>
+      <span class="pill" id="diffPill">Differences: 0%</span>
+    </div>
+
+    <div class="legend">
+      <div><span class="swatch green"></span>Same regions</div>
+      <div><span class="swatch red"></span>Different regions</div>
+    </div>
+
+    <div class="canvas-wrap">
+      <canvas id="resultCanvas" width="1200" height="700"></canvas>
+    </div>
+
+    <div class="summary" id="summaryText">
+      Upload two CAD drawings to compare them. Areas with matching content are shown in green; differences are shown in red.
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('resultCanvas');
+    const ctx = canvas.getContext('2d');
+    const matchPill = document.getElementById('matchPill');
+    const diffPill = document.getElementById('diffPill');
+    const statusText = document.getElementById('statusText');
+    const summaryText = document.getElementById('summaryText');
+    const downloadBtn = document.getElementById('downloadBtn');
+    let comparisonBlob = null;
+
+    function setStatus(text) {
+      statusText.textContent = text;
+    }
+
+    function getImageFromFile(file) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('Could not load image: ' + file.name));
+        img.src = URL.createObjectURL(file);
+      });
+    }
+
+    function resizeToFit(imgA, imgB) {
+      const maxWidth = 900;
+      const maxHeight = 620;
+      const widthA = imgA.width;
+      const heightA = imgA.height;
+      const widthB = imgB.width;
+      const heightB = imgB.height;
+
+      let scaleA = 1;
+      let scaleB = 1;
+
+      if (widthA > maxWidth || heightA > maxHeight) {
+        scaleA = Math.min(maxWidth / widthA, maxHeight / heightA, 1);
+      }
+      if (widthB > maxWidth || heightB > maxHeight) {
+        scaleB = Math.min(maxWidth / widthB, maxHeight / heightB, 1);
+      }
+
+      const targetW = Math.max(Math.round(widthA * scaleA), Math.round(widthB * scaleB));
+      const targetH = Math.max(Math.round(heightA * scaleA), Math.round(heightB * scaleB));
+
+      return { targetW, targetH, scaleA, scaleB };
+    }
+
+    function prepareImage(img, width, height) {
+      const temp = document.createElement('canvas');
+      temp.width = width;
+      temp.height = height;
+      const tctx = temp.getContext('2d');
+      tctx.fillStyle = '#ffffff';
+      tctx.fillRect(0, 0, width, height);
+      tctx.drawImage(img, 0, 0, width, height);
+      return tctx.getImageData(0, 0, width, height);
+    }
+
+    function compareImages(imgA, imgB) {
+      const { targetW, targetH } = resizeToFit(imgA, imgB);
+      const imgDataA = prepareImage(imgA, targetW, targetH);
+      const imgDataB = prepareImage(imgB, targetW, targetH);
+      const dataA = imgDataA.data;
+      const dataB = imgDataB.data;
+
+      const output = document.createElement('canvas');
+      output.width = targetW;
+      output.height = targetH;
+      const octx = output.getContext('2d');
+      const out = octx.createImageData(targetW, targetH);
+
+      let samePixels = 0;
+      let totalPixels = 0;
+      const tolerance = 32;
+
+      for (let i = 0; i < dataA.length; i += 4) {
+        const rA = dataA[i];
+        const gA = dataA[i + 1];
+        const bA = dataA[i + 2];
+        const rB = dataB[i];
+        const gB = dataB[i + 1];
+        const bB = dataB[i + 2];
+
+        const dr = Math.abs(rA - rB);
+        const dg = Math.abs(gA - gB);
+        const db = Math.abs(bA - bB);
+
+        const isSame = dr < tolerance && dg < tolerance && db < tolerance;
+        totalPixels++;
+
+        if (isSame) {
+          samePixels++;
+          out.data[i] = 34;      // green
+          out.data[i + 1] = 197;
+          out.data[i + 2] = 94;
+          out.data[i + 3] = 180;
+        } else {
+          out.data[i] = 239;      // red
+          out.data[i + 1] = 68;
+          out.data[i + 2] = 68;
+          out.data[i + 3] = 200;
+        }
+      }
+
+      octx.putImageData(out, 0, 0);
+      return {
+        canvas: output,
+        samePixels,
+        totalPixels,
+        samePercent: (samePixels / totalPixels) * 100,
+        diffPercent: (1 - samePixels / totalPixels) * 100
+      };
+    }
+
+    function renderCombined(imgA, imgB) {
+      const { targetW, targetH } = resizeToFit(imgA, imgB);
+      const gap = 30;
+      const composite = document.createElement('canvas');
+      composite.width = targetW * 2 + gap;
+      composite.height = targetH;
+      const cctx = composite.getContext('2d');
+      cctx.fillStyle = '#ffffff';
+      cctx.fillRect(0, 0, composite.width, composite.height);
+
+      cctx.drawImage(imgA, 0, 0, targetW, targetH);
+      cctx.drawImage(imgB, targetW + gap, 0, targetW, targetH);
+
+      const left = prepareImage(imgA, targetW, targetH);
+      const right = prepareImage(imgB, targetW, targetH);
+      const leftData = left.data;
+      const rightData = right.data;
+      const sameMask = document.createElement('canvas');
+      sameMask.width = targetW;
+      sameMask.height = targetH;
+      const maskCtx = sameMask.getContext('2d');
+      const maskData = maskCtx.createImageData(targetW, targetH);
+
+      const tolerance = 32;
+      let samePixels = 0;
+      let totalPixels = 0;
+
+      for (let i = 0; i < leftData.length; i += 4) {
+        const dr = Math.abs(leftData[i] - rightData[i]);
+        const dg = Math.abs(leftData[i + 1] - rightData[i + 1]);
+        const db = Math.abs(leftData[i + 2] - rightData[i + 2]);
+        const isSame = dr < tolerance && dg < tolerance && db < tolerance;
+        totalPixels++;
+
+        if (isSame) {
+          samePixels++;
+          maskData.data[i] = 34;
+          maskData.data[i + 1] = 197;
+          maskData.data[i + 2] = 94;
+          maskData.data[i + 3] = 180;
+        } else {
+          maskData.data[i] = 239;
+          maskData.data[i + 1] = 68;
+          maskData.data[i + 2] = 68;
+          maskData.data[i + 3] = 200;
+        }
+      }
+
+      maskCtx.putImageData(maskData, 0, 0);
+
+      cctx.save();
+      cctx.globalAlpha = 0.55;
+      cctx.drawImage(sameMask, 0, 0, targetW, targetH);
+      cctx.drawImage(sameMask, targetW + gap, 0, targetW, targetH);
+      cctx.restore();
+
+      const samePercent = (samePixels / totalPixels) * 100;
+      const diffPercent = 100 - samePercent;
+
+      return { composite, samePercent, diffPercent };
+    }
+
+    document.getElementById('compareBtn').addEventListener('click', async () => {
+      const fileA = document.getElementById('fileA').files[0];
+      const fileB = document.getElementById('fileB').files[0];
+
+      if (!fileA || !fileB) {
+        setStatus('Select both images first');
+        summaryText.textContent = 'Please upload both the original and revised CAD drawings.';
+        return;
+      }
+
+      try {
+        setStatus('Loading images...');
+        const imgA = await getImageFromFile(fileA);
+        const imgB = await getImageFromFile(fileB);
+
+        const { composite, samePercent, diffPercent } = renderCombined(imgA, imgB);
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        canvas.width = composite.width;
+        canvas.height = composite.height;
+        ctx.drawImage(composite, 0, 0);
+
+        matchPill.textContent = `Matches: ${samePercent.toFixed(1)}%`;
+        diffPill.textContent = `Differences: ${diffPercent.toFixed(1)}%`;
+        setStatus('Comparison complete');
+        summaryText.innerHTML = `
+          <strong>Result:</strong> ${samePercent.toFixed(1)}% of the drawing matched and ${diffPercent.toFixed(1)}% differs.
+          Areas shown in <span style="color:#22c55e;font-weight:bold;">green</span> are the same;
+          areas shown in <span style="color:#ef4444;font-weight:bold;">red</span> are different.<br>
+          Use the download button to save the highlighted comparison image.
+        `;
+
+        comparisonBlob = await new Promise((resolve) => composite.toBlob(resolve, 'image/png'));
+        downloadBtn.disabled = !comparisonBlob;
+      } catch (err) {
+        setStatus('Error');
+        summaryText.textContent = 'Unable to compare the images. Please make sure both files are valid images.';
+        console.error(err);
+      }
+    });
+
+    document.getElementById('downloadBtn').addEventListener('click', () => {
+      if (!comparisonBlob) return;
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(comparisonBlob);
+      a.download = 'drawing-comparison.png';
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      document.getElementById('fileA').value = '';
+      document.getElementById('fileB').value = '';
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      canvas.width = 1200;
+      canvas.height = 700;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      matchPill.textContent = 'Matches: 0%';
+      diffPill.textContent = 'Differences: 0%';
+      setStatus('Ready');
+      summaryText.textContent = 'Upload two CAD drawings to compare them. Areas with matching content are shown in green; differences are shown in red.';
+      comparisonBlob = null;
+      downloadBtn.disabled = true;
+    });
+  </script>
+</body>
+</html>
